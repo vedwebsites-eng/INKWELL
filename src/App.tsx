@@ -63,6 +63,8 @@ import {
   signInAnonymously,
   signOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
   User as FirebaseUser
 } from 'firebase/auth';
 import {
@@ -1390,6 +1392,36 @@ export default function App() {
     }
   };
 
+  // Sign In with Google OAuth
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    setAuthSuccess(null);
+    setIsAuthActionInProgress(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      // Add custom scopes if needed (like chrome sync or contacts or profile)
+      provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+      provider.addScope('https://www.googleapis.com/auth/userinfo.email');
+      
+      await signInWithPopup(auth, provider);
+      setAuthSuccess('Successfully signed in with Google!');
+      setAuthMode('idle');
+      showToast('Successfully signed in with Google!', 'success');
+    } catch (err: any) {
+      console.error(err);
+      let message = 'Google authentication failed. Please try again.';
+      if (err.code === 'auth/popup-blocked') {
+        message = 'Authentication popup was blocked. Please enable popups in your browser.';
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        message = 'Authentication popup was closed before completion.';
+      }
+      setAuthError(message);
+      showToast(message, 'error');
+    } finally {
+      setIsAuthActionInProgress(false);
+    }
+  };
+
   // Sign Out
   const handleSignOut = async () => {
     try {
@@ -1933,6 +1965,29 @@ export default function App() {
                           Register
                         </button>
                       </div>
+
+                      {/* Google Auth Option */}
+                      <button
+                        onClick={handleGoogleSignIn}
+                        disabled={isAuthActionInProgress}
+                        className="w-full py-2 px-3 rounded-xl border border-stone-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-900 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-stone-50 dark:hover:bg-zinc-800/80 transition-all font-sans font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        id="btn-google-signin-idle"
+                      >
+                        {isAuthActionInProgress ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                              <path fill="#EA4335" d="M12 5.04c1.62 0 3.08.56 4.22 1.66l3.15-3.15C17.45 1.74 14.9 1 12 1 7.35 1 3.4 3.65 1.5 7.5l3.6 2.8C6.1 7.04 8.85 5.04 12 5.04z" />
+                              <path fill="#4285F4" d="M23.45 12.27c0-.82-.07-1.6-.2-2.37H12v4.51h6.43c-.28 1.47-1.11 2.71-2.36 3.55l3.6 2.8c2.1-1.94 3.41-4.8 3.41-8.49z" />
+                              <path fill="#FBBC05" d="M5.1 14.7c-.24-.7-.37-1.45-.37-2.2s.13-1.5.37-2.2L1.5 7.5C.55 9.4 0 11.55 0 12s.55 2.6 1.5 4.5l3.6-2.8z" />
+                              <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.6-2.8c-1.1.74-2.5 1.18-4.36 1.18-3.15 0-5.9-2-6.9-5.26l-3.6 2.8C3.4 20.35 7.35 23 12 23z" />
+                            </svg>
+                            <span>Sign in with Google</span>
+                          </>
+                        )}
+                      </button>
+
                       <button
                         onClick={handleAnonymousSignIn}
                         disabled={isAuthActionInProgress}
@@ -2005,6 +2060,34 @@ export default function App() {
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <span>{authMode === 'login' ? 'Connect Account' : 'Register Credentials'}</span>
+                        )}
+                      </button>
+
+                      <div className="flex items-center gap-2 my-1">
+                        <div className="h-[1px] bg-stone-200 dark:bg-zinc-800 flex-1" />
+                        <span className="text-[9px] font-mono uppercase text-slate-400">or</span>
+                        <div className="h-[1px] bg-stone-200 dark:bg-zinc-800 flex-1" />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={isAuthActionInProgress}
+                        className="w-full py-2 px-3 rounded-xl border border-stone-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-900 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-stone-50 dark:hover:bg-zinc-800/80 transition-all font-sans font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        id="btn-google-signin-form"
+                      >
+                        {isAuthActionInProgress ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                              <path fill="#EA4335" d="M12 5.04c1.62 0 3.08.56 4.22 1.66l3.15-3.15C17.45 1.74 14.9 1 12 1 7.35 1 3.4 3.65 1.5 7.5l3.6 2.8C6.1 7.04 8.85 5.04 12 5.04z" />
+                              <path fill="#4285F4" d="M23.45 12.27c0-.82-.07-1.6-.2-2.37H12v4.51h6.43c-.28 1.47-1.11 2.71-2.36 3.55l3.6 2.8c2.1-1.94 3.41-4.8 3.41-8.49z" />
+                              <path fill="#FBBC05" d="M5.1 14.7c-.24-.7-.37-1.45-.37-2.2s.13-1.5.37-2.2L1.5 7.5C.55 9.4 0 11.55 0 12s.55 2.6 1.5 4.5l3.6-2.8z" />
+                              <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.6-2.8c-1.1.74-2.5 1.18-4.36 1.18-3.15 0-5.9-2-6.9-5.26l-3.6 2.8C3.4 20.35 7.35 23 12 23z" />
+                            </svg>
+                            <span>Continue with Google</span>
+                          </>
                         )}
                       </button>
 
