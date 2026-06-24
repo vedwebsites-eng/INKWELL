@@ -541,10 +541,9 @@ export default function App() {
   const saveContent = (immediate = false) => {
     if (!editorRef.current) return;
     
-    setSaveStatus('saving');
-    
     const performSave = async () => {
       if (!editorRef.current) return;
+      setSaveStatus('saving');
       try {
         localStorage.setItem('inkwell_content', editorRef.current.innerHTML);
         localStorage.setItem('inkwell_title', docTitle);
@@ -1071,15 +1070,21 @@ export default function App() {
     });
   };
 
-  // Global mouse up / selection monitor
+  // Global mouse up / selection monitor with debounce to prevent performance lags
   useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    
     const handleSelectionChange = () => {
-      updateFloatingToolbar();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        updateFloatingToolbar();
+      }, 100); // 100ms debounce
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
