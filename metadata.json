@@ -1,0 +1,6 @@
+{
+  "name": "Inkwell",
+  "description": "Aesthetic document editor that turns plain text into beautifully formatted documents with soft highlights, wavy underlines, and elegant typography.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
