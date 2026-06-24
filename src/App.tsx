@@ -43,9 +43,42 @@ import {
   Mic,
   MicOff,
   History,
-  Clock
+  Clock,
+  Cloud,
+  CloudOff,
+  LogIn,
+  LogOut,
+  FolderOpen,
+  User,
+  Key,
+  ShieldAlert,
+  CheckCircle,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { auth, db } from './lib/firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import {
+  collection,
+  doc,
+  setDoc,
+  addDoc,
+  getDoc,
+  getDocs,
+  getDocFromServer,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
 
 // Theme configuration
 interface Theme {
@@ -341,6 +374,22 @@ export default function App() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+
+  // Firebase Authentication & Sync States
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authMode, setAuthMode] = useState<'idle' | 'login' | 'signup'>('idle');
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
+  const [isAuthActionInProgress, setIsAuthActionInProgress] = useState<boolean>(false);
+  
+  // Cloud Document management States
+  const [cloudDocs, setCloudDocs] = useState<any[]>([]);
+  const [activeCloudDocId, setActiveCloudDocId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isCloudDocsLoading, setIsCloudDocsLoading] = useState<boolean>(false);
   
   // Floating toolbar state
   const [floatingToolbarCoords, setFloatingToolbarCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -377,6 +426,7 @@ export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Toast helper
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -451,8 +501,8 @@ export default function App() {
     if (!editorRef.current) return;
     const html = editorRef.current.innerHTML;
     
-    // Clean text extraction
-    const plainText = editorRef.current.innerText || '';
+    // Clean text extraction (use textContent instead of innerText to avoid synchronous layout engine reflows)
+    const plainText = editorRef.current.textContent || '';
     const wordMatches = plainText.trim().match(/\b\w+\b/g);
     const words = wordMatches ? wordMatches.length : 0;
     const chars = plainText.replace(/\s/g, '').length;
@@ -487,27 +537,77 @@ export default function App() {
     setStats({ words, chars, readTime, scoreClass, scoreColor, totalFeatures });
   };
 
-  // Autosave content to localStorage
-  const saveContent = () => {
+  // Autosave content to localStorage (debounced by default to prevent typing lags and blocking operations)
+  const saveContent = (immediate = false) => {
     if (!editorRef.current) return;
+    
     setSaveStatus('saving');
-    try {
-      localStorage.setItem('inkwell_content', editorRef.current.innerHTML);
-      localStorage.setItem('inkwell_title', docTitle);
-      localStorage.setItem('inkwell_theme', theme.id);
-      localStorage.setItem('inkwell_pattern', pattern);
-      localStorage.setItem('inkwell_font', baseFont.id);
-      localStorage.setItem('inkwell_fontsize', baseFontSize);
-      localStorage.setItem('inkwell_kerning', kerning);
-      localStorage.setItem('inkwell_high_contrast', highContrast ? 'true' : 'false');
-      
-      setTimeout(() => {
+    
+    const performSave = async () => {
+      if (!editorRef.current) return;
+      try {
+        localStorage.setItem('inkwell_content', editorRef.current.innerHTML);
+        localStorage.setItem('inkwell_title', docTitle);
+        localStorage.setItem('inkwell_theme', theme.id);
+        localStorage.setItem('inkwell_pattern', pattern);
+        localStorage.setItem('inkwell_font', baseFont.id);
+        localStorage.setItem('inkwell_fontsize', baseFontSize);
+        localStorage.setItem('inkwell_kerning', kerning);
+        localStorage.setItem('inkwell_high_contrast', highContrast ? 'true' : 'false');
+        
         setSaveStatus('saved');
         updateStats();
-      }, 400);
-    } catch (e) {
-      console.error(e);
-      setSaveStatus('error');
+
+        // Sync with Firestore if active cloud document
+        if (auth.currentUser && activeCloudDocId) {
+          setIsSyncing(true);
+          const plainText = editorRef.current.textContent || '';
+          const wordMatches = plainText.trim().match(/\b\w+\b/g);
+          const words = wordMatches ? wordMatches.length : 0;
+          const chars = plainText.replace(/\s/g, '').length;
+
+          const docData = {
+            title: docTitle || 'Untitled Draft',
+            content: editorRef.current.innerHTML || '',
+            themeId: theme.id,
+            pattern: pattern,
+            baseFontId: baseFont.id,
+            baseFontSize: baseFontSize,
+            kerning: kerning,
+            highContrast: highContrast,
+            words: words,
+            chars: chars,
+            versions: versions,
+            updatedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          };
+
+          const docRef = doc(db, 'users', auth.currentUser.uid, 'documents', activeCloudDocId);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+            const snapData = snap.data();
+            docData.createdAt = snapData.createdAt || docData.createdAt;
+          }
+          await setDoc(docRef, docData);
+          setIsSyncing(false);
+        }
+      } catch (e) {
+        console.error(e);
+        setSaveStatus('error');
+        setIsSyncing(false);
+      }
+    };
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    if (immediate) {
+      performSave();
+    } else {
+      saveTimeoutRef.current = setTimeout(() => {
+        performSave();
+      }, 800); // 800ms debounce
     }
   };
 
@@ -789,8 +889,8 @@ export default function App() {
       return;
     }
     
-    // Plain text statistics
-    const plainText = editorRef.current.innerText || '';
+    // Plain text statistics (using textContent to avoid synchronous browser layout engine reflows)
+    const plainText = editorRef.current.textContent || '';
     const wordMatches = plainText.trim().match(/\b\w+\b/g);
     const words = wordMatches ? wordMatches.length : 0;
     const chars = plainText.replace(/\s/g, '').length;
@@ -1108,6 +1208,292 @@ export default function App() {
       showToast('Paper sheet cleared. Start fresh!', 'info');
     }
     setShowClearConfirm(false);
+  };
+
+  // --- FIREBASE CLOUD CORE HANDLERS ---
+  
+  // 1. Firebase Boot verification & Authentication watcher
+  useEffect(() => {
+    async function verifyConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Verified database availability.");
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Firebase clients are currently offline or config is misaligned.");
+        }
+      }
+    }
+    verifyConnection();
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+      
+      if (firebaseUser) {
+        showToast(
+          `Connected as ${firebaseUser.isAnonymous ? 'Guest Explorer' : firebaseUser.email}`,
+          'success'
+        );
+      } else {
+        setActiveCloudDocId(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Real-time Subscription to Personal Cloud Documents
+  useEffect(() => {
+    if (!user) {
+      setCloudDocs([]);
+      return;
+    }
+
+    setIsCloudDocsLoading(true);
+    const docsRef = collection(db, 'users', user.uid, 'documents');
+    const q = query(docsRef);
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs: any[] = [];
+      snapshot.forEach((docSnapshot) => {
+        docs.push({
+          id: docSnapshot.id,
+          ...docSnapshot.data()
+        });
+      });
+      // Sort on client side to prevent index failures
+      docs.sort((a, b) => {
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return timeB - timeA;
+      });
+      setCloudDocs(docs);
+      setIsCloudDocsLoading(false);
+    }, (error) => {
+      console.error("Failed to sync client documents collection:", error);
+      setIsCloudDocsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Handle Sign In / Sign Up submission
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authEmail || !authPassword) {
+      setAuthError('Please fill in all credential fields.');
+      return;
+    }
+    setAuthError(null);
+    setAuthSuccess(null);
+    setIsAuthActionInProgress(true);
+    try {
+      if (authMode === 'login') {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        setAuthSuccess('Successfully signed in!');
+        setAuthMode('idle');
+        setAuthEmail('');
+        setAuthPassword('');
+      } else {
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        setAuthSuccess('Account registered successfully!');
+        setAuthMode('idle');
+        setAuthEmail('');
+        setAuthPassword('');
+      }
+    } catch (err: any) {
+      console.error(err);
+      let message = 'Authentication failed. Please verify credentials.';
+      if (err.code === 'auth/email-already-in-use') {
+        message = 'This email is already associated with another account.';
+      } else if (err.code === 'auth/weak-password') {
+        message = 'Password must be at least 6 characters.';
+      } else if (err.code === 'auth/invalid-credential') {
+        message = 'Invalid email or password credentials.';
+      }
+      setAuthError(message);
+      showToast(message, 'error');
+    } finally {
+      setIsAuthActionInProgress(false);
+    }
+  };
+
+  // Sign In as Guest (Anonymous)
+  const handleAnonymousSignIn = async () => {
+    setAuthError(null);
+    setAuthSuccess(null);
+    setIsAuthActionInProgress(true);
+    try {
+      await signInAnonymously(auth);
+      setAuthMode('idle');
+    } catch (err: any) {
+      console.error(err);
+      const message = 'Could not establish guest credentials. Please try again.';
+      setAuthError(message);
+      showToast(message, 'error');
+    } finally {
+      setIsAuthActionInProgress(false);
+    }
+  };
+
+  // Sign Out
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setActiveCloudDocId(null);
+      showToast('Signed out successfully.', 'info');
+    } catch (err) {
+      console.error(err);
+      showToast('Error during sign out.', 'error');
+    }
+  };
+
+  // Explicit Cloud saving trigger
+  const handleSaveToCloud = async () => {
+    if (!user) {
+      setAuthMode('login');
+      showToast('Please sign in to sync with cloud storage.', 'info');
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const plainText = editorRef.current?.textContent || '';
+      const wordMatches = plainText.trim().match(/\b\w+\b/g);
+      const words = wordMatches ? wordMatches.length : 0;
+      const chars = plainText.replace(/\s/g, '').length;
+
+      const docData = {
+        title: docTitle || 'Untitled Draft',
+        content: editorRef.current?.innerHTML || '',
+        themeId: theme.id,
+        pattern: pattern,
+        baseFontId: baseFont.id,
+        baseFontSize: baseFontSize,
+        kerning: kerning,
+        highContrast: highContrast,
+        words: words,
+        chars: chars,
+        versions: versions,
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+
+      if (activeCloudDocId) {
+        const docRef = doc(db, 'users', user.uid, 'documents', activeCloudDocId);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          docData.createdAt = snap.data().createdAt || docData.createdAt;
+        }
+        await setDoc(docRef, docData);
+        showToast('Document synced to cloud.', 'success');
+      } else {
+        const colRef = collection(db, 'users', user.uid, 'documents');
+        const newDocRef = doc(colRef);
+        await setDoc(newDocRef, docData);
+        setActiveCloudDocId(newDocRef.id);
+        showToast('Draft published to cloud documents.', 'success');
+      }
+    } catch (err) {
+      console.error("Save to cloud failed:", err);
+      showToast('Failed to save to cloud.', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Load selected cloud document
+  const loadCloudDocument = (docItem: any) => {
+    if (!editorRef.current) return;
+    try {
+      setActiveCloudDocId(docItem.id);
+      editorRef.current.innerHTML = docItem.content || '';
+      setDocTitle(docItem.title || 'Untitled Draft');
+      
+      if (docItem.themeId) {
+        const foundTheme = THEMES.find(t => t.id === docItem.themeId);
+        if (foundTheme) setTheme(foundTheme);
+      }
+      if (docItem.pattern) setPattern(docItem.pattern);
+      if (docItem.baseFontId) {
+        const foundFont = FONTS.find(f => f.id === docItem.baseFontId);
+        if (foundFont) setBaseFont(foundFont);
+      }
+      if (docItem.baseFontSize) setBaseFontSize(docItem.baseFontSize);
+      if (docItem.kerning) setKerning(docItem.kerning);
+      if (typeof docItem.highContrast === 'boolean') setHighContrast(docItem.highContrast);
+      
+      if (docItem.versions) {
+        setVersions(docItem.versions);
+        localStorage.setItem('inkwell_versions', JSON.stringify(docItem.versions));
+      } else {
+        setVersions([]);
+        localStorage.removeItem('inkwell_versions');
+      }
+
+      // Sync offline local cache
+      localStorage.setItem('inkwell_content', docItem.content || '');
+      localStorage.setItem('inkwell_title', docItem.title || 'Untitled Draft');
+      if (docItem.themeId) localStorage.setItem('inkwell_theme', docItem.themeId);
+      if (docItem.pattern) localStorage.setItem('inkwell_pattern', docItem.pattern);
+      if (docItem.baseFontId) localStorage.setItem('inkwell_font', docItem.baseFontId);
+      if (docItem.baseFontSize) localStorage.setItem('inkwell_fontsize', docItem.baseFontSize);
+      if (docItem.kerning) localStorage.setItem('inkwell_kerning', docItem.kerning);
+      localStorage.setItem('inkwell_high_contrast', docItem.highContrast ? 'true' : 'false');
+
+      showToast(`Loaded "${docItem.title}" from cloud`, 'success');
+      updateStats();
+    } catch (err) {
+      console.error("Error loading document:", err);
+      showToast("Failed to load document.", "error");
+    }
+  };
+
+  // Delete cloud document
+  const deleteCloudDocument = async (docId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    if (window.confirm("Are you sure you want to delete this cloud document? This action is irreversible.")) {
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, 'documents', docId));
+        showToast("Document removed from cloud.", "success");
+        if (activeCloudDocId === docId) {
+          setActiveCloudDocId(null);
+        }
+      } catch (err) {
+        console.error("Error deleting document:", err);
+        showToast("Failed to delete cloud document.", "error");
+      }
+    }
+  };
+
+  // Create a brand new cloud-eligible document
+  const createNewDocument = () => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = '<h1></h1><p><br></p>';
+    }
+    setDocTitle('New Aesthetic Work');
+    setActiveCloudDocId(null);
+    setVersions([]);
+    setTheme(THEMES[0]);
+    setPattern('blank');
+    setBaseFont(FONTS[0]);
+    setBaseFontSize('text-lg');
+    setKerning('tracking-normal');
+    setHighContrast(false);
+    
+    localStorage.setItem('inkwell_content', '<h1></h1><p><br></p>');
+    localStorage.setItem('inkwell_title', 'New Aesthetic Work');
+    localStorage.setItem('inkwell_theme', THEMES[0].id);
+    localStorage.setItem('inkwell_pattern', 'blank');
+    localStorage.setItem('inkwell_font', FONTS[0].id);
+    localStorage.setItem('inkwell_fontsize', 'text-lg');
+    localStorage.setItem('inkwell_kerning', 'tracking-normal');
+    localStorage.setItem('inkwell_high_contrast', 'false');
+    localStorage.removeItem('inkwell_versions');
+
+    showToast("Started fresh paper sheet.", "success");
+    updateStats();
   };
 
   // Launch browser native print dialog (combines with @media print layout rules)
@@ -1438,6 +1824,261 @@ export default function App() {
         {/* LEFT COLUMN: Sidebar with formatting, upload actions and metadata (no-print) */}
         <aside className="lg:w-72 flex flex-col gap-6 no-print">
           
+          {/* FIREBASE AUTHENTICATION & CLOUD SYNC PORTAL */}
+          <div className="backdrop-blur-xl bg-white/60 dark:bg-zinc-900/60 border border-white/40 dark:border-zinc-800/40 p-5 rounded-2xl shadow-xl flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800/60 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <Cloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-grotesk font-semibold text-xs uppercase tracking-wider text-slate-400">Cloud Workspace</h3>
+                  <p className="text-[10px] text-slate-500 font-sans">
+                    {user ? (user.isAnonymous ? 'Guest Explorer' : user.email) : 'Offline Storage'}
+                  </p>
+                </div>
+              </div>
+              {user && (
+                <button
+                  onClick={handleSignOut}
+                  className="p-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 dark:hover:text-rose-400 text-slate-400 transition-colors"
+                  title="Sign Out"
+                  id="btn-cloud-signout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {authLoading ? (
+              <div className="py-6 flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" />
+                <span className="text-[10px] font-mono text-slate-400">Securing environment...</span>
+              </div>
+            ) : !user ? (
+              // NOT LOGGED IN
+              <div className="flex flex-col gap-3">
+                {authMode === 'idle' ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed font-sans">
+                      Publish your aesthetic drafts to secure cloud databases. Sync drafts, settings, and versions across devices instantly.
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => { setAuthMode('login'); setAuthError(null); }}
+                          className="py-2 px-3 rounded-xl bg-stone-100 dark:bg-zinc-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-400 text-slate-700 dark:text-zinc-300 transition-all font-sans font-medium text-xs text-center cursor-pointer border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/40"
+                          id="btn-switch-login"
+                        >
+                          Sign In
+                        </button>
+                        <button
+                          onClick={() => { setAuthMode('signup'); setAuthError(null); }}
+                          className="py-2 px-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/10 transition-all font-sans font-semibold text-xs text-center cursor-pointer"
+                          id="btn-switch-signup"
+                        >
+                          Register
+                        </button>
+                      </div>
+                      <button
+                        onClick={handleAnonymousSignIn}
+                        disabled={isAuthActionInProgress}
+                        className="w-full py-2 px-3 rounded-xl border border-stone-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-900 bg-white/40 dark:bg-zinc-950/20 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-all font-sans font-medium text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+                        id="btn-anonymous-signin"
+                      >
+                        {isAuthActionInProgress ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <User className="w-3.5 h-3.5" />
+                            <span>Continue as Guest (No Password)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // LOGIN OR SIGNUP FORM
+                  <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
+                    <h4 className="font-grotesk font-semibold text-xs text-slate-800 dark:text-zinc-200">
+                      {authMode === 'login' ? 'Sign In to Account' : 'Register New Account'}
+                    </h4>
+
+                    {authError && (
+                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 text-[10px] text-rose-600 dark:text-rose-400 flex gap-1.5 items-start">
+                        <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>{authError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                      {/* Email Input */}
+                      <div className="relative">
+                        <User className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="Your email address"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 focus:outline-none focus:border-indigo-500 font-sans"
+                          id="auth-email-input"
+                        />
+                      </div>
+
+                      {/* Password Input */}
+                      <div className="relative">
+                        <Key className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="password"
+                          required
+                          placeholder="Your security password"
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 focus:outline-none focus:border-indigo-500 font-sans"
+                          id="auth-password-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 pt-1">
+                      <button
+                        type="submit"
+                        disabled={isAuthActionInProgress}
+                        className="w-full py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        id="auth-submit-btn"
+                      >
+                        {isAuthActionInProgress ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <span>{authMode === 'login' ? 'Connect Account' : 'Register Credentials'}</span>
+                        )}
+                      </button>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-sans px-1">
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                          className="hover:text-indigo-500 transition-colors cursor-pointer"
+                          id="auth-mode-toggle"
+                        >
+                          {authMode === 'login' ? "New? Sign Up instead" : "Have account? Sign In"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode('idle')}
+                          className="hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                          id="auth-cancel-btn"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : (
+              // LOGGED IN VIEW
+              <div className="flex flex-col gap-3.5">
+                {/* Cloud Documents Header */}
+                <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800/30 pb-2">
+                  <span className="text-[11px] font-mono uppercase text-slate-400 font-semibold tracking-wider flex items-center gap-1.5">
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span>Cloud Documents</span>
+                  </span>
+                  <button
+                    onClick={createNewDocument}
+                    className="p-1 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:scale-105 transition-all"
+                    title="Create Brand New Document"
+                    id="btn-cloud-create-new"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Cloud Documents List */}
+                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-0.5 custom-scrollbar">
+                  {isCloudDocsLoading ? (
+                    <div className="py-4 flex flex-col items-center justify-center gap-1.5">
+                      <RefreshCw className="w-4 h-4 text-indigo-500 animate-spin" />
+                      <span className="text-[9px] font-mono text-slate-400">Fetching workspace...</span>
+                    </div>
+                  ) : cloudDocs.length === 0 ? (
+                    <div className="py-4 text-center">
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-500 italic">No cloud documents found.</p>
+                    </div>
+                  ) : (
+                    cloudDocs.map(docItem => (
+                      <div
+                        key={docItem.id}
+                        onClick={() => loadCloudDocument(docItem)}
+                        className={`group w-full py-2 px-2.5 rounded-xl text-left font-sans text-xs flex items-center justify-between gap-2 border transition-all cursor-pointer ${
+                          activeCloudDocId === docItem.id
+                            ? 'border-indigo-500/80 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'border-transparent hover:border-stone-200/50 dark:hover:border-zinc-800 bg-stone-50/40 hover:bg-stone-50 dark:bg-zinc-950/10 dark:hover:bg-zinc-950/30 text-slate-700 dark:text-zinc-300'
+                        }`}
+                        id={`cloud-doc-${docItem.id}`}
+                      >
+                        <div className="flex items-center gap-2 truncate min-w-0">
+                          <FileText className={`w-3.5 h-3.5 shrink-0 ${activeCloudDocId === docItem.id ? 'text-indigo-500' : 'text-slate-400'}`} />
+                          <div className="truncate flex flex-col min-w-0">
+                            <span className="font-semibold truncate">{docItem.title || 'Untitled Draft'}</span>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              {docItem.words || 0} words • {docItem.chars || 0} chars
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => deleteCloudDocument(docItem.id, e)}
+                            className="p-1 rounded hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-400 transition-colors"
+                            title="Delete cloud document"
+                            id={`btn-delete-cloud-${docItem.id}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Save Current Draft to Cloud button */}
+                <div className="pt-2 border-t border-stone-100 dark:border-zinc-800/40 flex flex-col gap-2">
+                  <button
+                    onClick={handleSaveToCloud}
+                    disabled={isSyncing}
+                    className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
+                      activeCloudDocId
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/10'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/10'
+                    }`}
+                    id="btn-cloud-sync"
+                  >
+                    {isSyncing ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : activeCloudDocId ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-100" />
+                        <span>Synced to Cloud</span>
+                      </>
+                    ) : (
+                      <>
+                        <Cloud className="w-3.5 h-3.5" />
+                        <span>Publish Draft to Cloud</span>
+                      </>
+                    )}
+                  </button>
+                  {isSyncing && (
+                    <p className="text-[9px] font-mono text-center text-slate-400 animate-pulse">
+                      Syncing to cloud database...
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Document Properties & Styling station */}
           <div className="backdrop-blur-xl bg-white/60 dark:bg-zinc-900/60 border border-white/40 dark:border-zinc-800/40 p-5 rounded-2xl shadow-xl flex flex-col gap-5">
             <h3 className="font-grotesk font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">

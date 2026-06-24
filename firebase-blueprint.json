@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile containing settings and preferences for the Inkwell workspace",
+      "type": "object",
+      "properties": {
+        "themeId": { "type": "string", "description": "Active workspace visual theme ID" },
+        "pattern": { "type": "string", "description": "Active background pattern (blank, ruled, grid)" },
+        "baseFontId": { "type": "string", "description": "Active font family preference ID" },
+        "baseFontSize": { "type": "string", "description": "Active font sizing preference" },
+        "kerning": { "type": "string", "description": "Active character letter-spacing (kerning) preference" },
+        "highContrast": { "type": "boolean", "description": "Accessibility high contrast mode state" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last profile preference sync" }
+      },
+      "required": ["themeId", "pattern", "baseFontId", "baseFontSize", "kerning", "highContrast", "updatedAt"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "An aesthetic content draft written in the Inkwell workspace",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the aesthetic document" },
+        "content": { "type": "string", "description": "HTML rich text content of the document" },
+        "themeId": { "type": "string", "description": "Theme used to display this document" },
+        "pattern": { "type": "string", "description": "Background pattern used on the paper canvas" },
+        "baseFontId": { "type": "string", "description": "Primary typography font family ID for this document" },
+        "baseFontSize": { "type": "string", "description": "Font size style for this document" },
+        "kerning": { "type": "string", "description": "Letter spacing styling for this document" },
+        "highContrast": { "type": "boolean", "description": "High contrast setting override" },
+        "words": { "type": "integer", "description": "Word count of the content text" },
+        "chars": { "type": "integer", "description": "Character count excluding whitespace" },
+        "versions": {
+          "type": "array",
+          "description": "Up to 10 lightweight manual/automatic historical draft checkpoints"
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of document creation" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp of the last content write" }
+      },
+      "required": [
+        "title",
+        "content",
+        "themeId",
+        "pattern",
+        "baseFontId",
+        "baseFontSize",
+        "kerning",
+        "highContrast",
+        "words",
+        "chars",
+        "versions",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles containing aesthetic preferences"
+    },
+    "/users/{userId}/documents/{documentId}": {
+      "schema": "Document",
+      "description": "Individual documents owned by the specific authenticated user"
+    }
+  }
+}

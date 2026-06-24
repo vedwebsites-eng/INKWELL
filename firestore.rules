@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if user is authenticated and is the owner of the matching path variable
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Helper to validate generic string format for alphanumeric IDs
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Validation helper for UserProfile
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['themeId', 'pattern', 'baseFontId', 'baseFontSize', 'kerning', 'highContrast', 'updatedAt'])
+          && data.themeId is string
+          && data.pattern is string
+          && data.baseFontId is string
+          && data.baseFontSize is string
+          && data.kerning is string
+          && data.highContrast is bool;
+    }
+
+    // Validation helper for Document
+    function isValidDocument(data) {
+      return data.keys().hasAll([
+            'title', 'content', 'themeId', 'pattern', 'baseFontId',
+            'baseFontSize', 'kerning', 'highContrast', 'words', 'chars',
+            'versions', 'createdAt', 'updatedAt'
+          ])
+          && data.title is string
+          && data.title.size() <= 200
+          && data.content is string
+          && data.themeId is string
+          && data.pattern is string
+          && data.baseFontId is string
+          && data.baseFontSize is string
+          && data.kerning is string
+          && data.highContrast is bool
+          && data.words is int
+          && data.chars is int
+          && data.versions is list;
+    }
+
+    // Matches for the User Profiles collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      // Matches for the User's Subcollection of Documents
+      match /documents/{documentId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(documentId) && isValidDocument(request.resource.data);
+        allow update: if isOwner(userId) && isValidId(documentId) && isValidDocument(request.resource.data);
+        allow delete: if isOwner(userId) && isValidId(documentId);
+      }
+    }
+  }
+}
