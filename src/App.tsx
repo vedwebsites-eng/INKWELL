@@ -375,6 +375,10 @@ export default function App() {
   const [showHelp, setShowHelp] = useState<boolean>(false);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
 
+  // Table of Contents states
+  const [tocItems, setTocItems] = useState<{ id: string; text: string; level: number }[]>([]);
+  const [tocPosition, setTocPosition] = useState<'sidebar' | 'top' | 'both' | 'hidden'>('sidebar');
+
   // Firebase Authentication & Sync States
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
@@ -480,6 +484,11 @@ export default function App() {
       const savedHighContrast = localStorage.getItem('inkwell_high_contrast');
       if (savedHighContrast === 'true') setHighContrast(true);
 
+      const savedTocPosition = localStorage.getItem('inkwell_toc_position');
+      if (savedTocPosition) {
+        setTocPosition(savedTocPosition as any);
+      }
+
       const savedVersions = localStorage.getItem('inkwell_versions');
       if (savedVersions) {
         try {
@@ -495,6 +504,44 @@ export default function App() {
       showToast('Could not load cached preferences.', 'error');
     }
   }, []);
+
+  // Generate Table of Contents from active H1, H2, and H3 tags
+  const updateToC = () => {
+    if (!editorRef.current) return;
+    const headings = editorRef.current.querySelectorAll('h1, h2, h3');
+    const items: { id: string; text: string; level: number }[] = [];
+    
+    headings.forEach((heading, index) => {
+      const text = heading.textContent?.trim() || '';
+      if (!text) return;
+
+      const id = `heading-${index}`;
+      heading.setAttribute('id', id);
+      
+      items.push({
+        id,
+        text,
+        level: parseInt(heading.tagName.substring(1), 10)
+      });
+    });
+    
+    setTocItems(items);
+  };
+
+  // Smoothly scroll to a specific heading in the document editor and flash it
+  const handleToCClick = (id: string) => {
+    if (!editorRef.current) return;
+    const element = editorRef.current.querySelector(`#${id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // Temporary high-fidelity visual feedback
+      element.classList.add('transition-all', 'duration-500', 'bg-indigo-50/80', 'dark:bg-indigo-950/50', 'ring-4', 'ring-indigo-100', 'dark:ring-indigo-900/30', 'rounded-lg');
+      setTimeout(() => {
+        element.classList.remove('bg-indigo-50/80', 'dark:bg-indigo-950/50', 'ring-4', 'ring-indigo-100', 'dark:ring-indigo-900/30', 'rounded-lg');
+      }, 1500);
+    }
+  };
 
   // Update live statistics based on current content
   const updateStats = () => {
@@ -535,6 +582,7 @@ export default function App() {
     }
 
     setStats({ words, chars, readTime, scoreClass, scoreColor, totalFeatures });
+    updateToC();
   };
 
   // Autosave content to localStorage (debounced by default to prevent typing lags and blocking operations)
@@ -2428,6 +2476,86 @@ export default function App() {
             </div>
           </div>
 
+          {/* TABLE OF CONTENTS STATION */}
+          <div className="backdrop-blur-xl bg-white/60 dark:bg-zinc-900/60 border border-white/40 dark:border-zinc-800/40 p-5 rounded-2xl shadow-xl flex flex-col gap-3.5 no-print">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800 pb-2.5">
+                <h3 className="font-grotesk font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-indigo-500" />
+                  <span>Table of Contents</span>
+                </h3>
+              </div>
+              
+              {/* Position toggler pills */}
+              <div className="flex flex-col gap-1.5 mt-1">
+                <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold tracking-wider">ToC Position</span>
+                <div className="grid grid-cols-4 gap-1 bg-stone-100/80 dark:bg-zinc-800/60 p-0.5 rounded-lg border border-stone-200/40 dark:border-zinc-700/30">
+                  {(['sidebar', 'top', 'both', 'hidden'] as const).map((pos) => (
+                    <button
+                      key={pos}
+                      onClick={() => {
+                        setTocPosition(pos);
+                        localStorage.setItem('inkwell_toc_position', pos);
+                        showToast(`Outline displayed in ${pos === 'top' ? 'document top' : pos === 'both' ? 'both columns' : pos}.`, 'success');
+                      }}
+                      className={`py-1 text-[9px] font-mono uppercase font-bold rounded-md transition-all cursor-pointer ${
+                        tocPosition === pos
+                          ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300'
+                      }`}
+                      title={`Display outline in ${pos}`}
+                      id={`btn-toc-pos-${pos}`}
+                    >
+                      {pos === 'both' ? 'Both' : pos === 'top' ? 'Top' : pos === 'sidebar' ? 'Side' : 'Off'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Active List of Headings */}
+            {(tocPosition === 'sidebar' || tocPosition === 'both') && (
+              <div className="flex flex-col gap-2.5 mt-1">
+                <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold tracking-wider">Document Outline</span>
+                
+                <div className="max-h-60 overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin">
+                  {tocItems.length === 0 ? (
+                    <div className="text-center py-6 border border-dashed border-stone-200 dark:border-zinc-800/80 rounded-xl">
+                      <List className="w-5 h-5 text-stone-300 dark:text-zinc-700 mx-auto mb-1.5" />
+                      <span className="block text-[10px] text-slate-400 dark:text-zinc-500 font-sans font-medium leading-relaxed px-3">
+                        No headings found.<br />Use <strong>Title H1</strong>, <strong>Header H2</strong>, or <strong>Section H3</strong> formatting buttons to start your document outline.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      {tocItems.map((item) => {
+                        const indentClass = 
+                          item.level === 1 ? 'pl-1 font-bold text-slate-800 dark:text-zinc-200 text-xs' :
+                          item.level === 2 ? 'pl-4 font-semibold text-slate-600 dark:text-zinc-300 text-[11px]' :
+                          'pl-7 font-medium text-slate-400 dark:text-zinc-400 text-[10px]';
+                        
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleToCClick(item.id)}
+                            className={`w-full py-1 text-left rounded-lg hover:bg-indigo-50/50 dark:hover:bg-zinc-800/40 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all flex items-start gap-1.5 group cursor-pointer ${indentClass}`}
+                            title={`Go to: ${item.text}`}
+                            id={`btn-toc-item-${item.id}`}
+                          >
+                            <span className="text-indigo-400/50 group-hover:text-indigo-500 shrink-0 select-none">
+                              {item.level === 1 ? '•' : item.level === 2 ? '›' : '»'}
+                            </span>
+                            <span className="truncate leading-tight">{item.text}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Historical Checkpoints / Version History hub */}
           <div className="backdrop-blur-xl bg-white/60 dark:bg-zinc-900/60 border border-white/40 dark:border-zinc-800/40 p-5 rounded-2xl shadow-xl flex flex-col gap-3.5 no-print">
             <div className="flex items-center justify-between border-b border-stone-100 dark:border-zinc-800 pb-2.5">
@@ -2600,6 +2728,43 @@ export default function App() {
               <div className="w-12 h-1.5 bg-stone-300/40 dark:bg-zinc-800/80 rounded-b-md" />
               <div className="w-12 h-1.5 bg-stone-300/40 dark:bg-zinc-800/80 rounded-b-md" />
             </div>
+
+            {/* Document Inline Table of Contents */}
+            {(tocPosition === 'top' || tocPosition === 'both') && tocItems.length > 0 && (
+              <div 
+                className="mb-8 p-6 rounded-2xl bg-stone-50/40 dark:bg-zinc-950/20 border border-dashed border-stone-200 dark:border-zinc-800/80 no-print"
+                id="document-top-toc"
+              >
+                <div className="flex items-center gap-2 border-b border-stone-200/50 dark:border-zinc-800/50 pb-2.5 mb-3.5">
+                  <BookOpen className="w-4 h-4 text-indigo-500" />
+                  <span className="font-grotesk font-bold text-xs uppercase tracking-widest text-slate-400 dark:text-zinc-500">Table of Contents</span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                  {tocItems.map((item) => {
+                    const indentPadding = 
+                      item.level === 1 ? 'font-bold text-slate-800 dark:text-zinc-200 text-sm' :
+                      item.level === 2 ? 'pl-4 font-semibold text-slate-600 dark:text-zinc-300 text-xs' :
+                      'pl-8 font-medium text-slate-400 dark:text-zinc-400 text-xs';
+                    
+                    return (
+                      <button
+                        key={`top-toc-${item.id}`}
+                        onClick={() => handleToCClick(item.id)}
+                        className={`w-full py-1 text-left rounded hover:bg-indigo-50/30 dark:hover:bg-zinc-800/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all flex items-start gap-1.5 group cursor-pointer ${indentPadding}`}
+                        title={`Go to: ${item.text}`}
+                        id={`btn-top-toc-item-${item.id}`}
+                      >
+                        <span className="text-indigo-400/50 group-hover:text-indigo-500 shrink-0 select-none">
+                          {item.level === 1 ? '•' : item.level === 2 ? '›' : '»'}
+                        </span>
+                        <span className="truncate">{item.text}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Clean contenteditable area */}
             <div
