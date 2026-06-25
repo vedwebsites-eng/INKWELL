@@ -1644,8 +1644,19 @@ export default function App() {
     return (
       <div className={`min-h-screen transition-all duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-x-hidden font-sans`}>
         {/* Paper Background Texture */}
-        <div className="absolute inset-0 opacity-100 pointer-events-none z-0 overflow-hidden" 
-             style={{ backgroundImage: 'radial-gradient(#d1c5a9 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+        <div className="absolute inset-0 z-0 pointer-events-none"
+             style={{
+               backgroundImage: `radial-gradient(${isDarkTheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.1)'} 1px, transparent 1px)`,
+               backgroundSize: '24px 24px'
+             }} />
+        <div className="absolute inset-0 z-0 pointer-events-none"
+             style={{
+               backgroundImage: `repeating-linear-gradient(to bottom, transparent, transparent 23px, ${isDarkTheme ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'} 24px)`
+             }} />
+        <div className="absolute inset-0 z-0 pointer-events-none"
+             style={{
+               backgroundImage: `linear-gradient(to right, transparent 70px, ${isDarkTheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'} 70px, ${isDarkTheme ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'} 72px, transparent 72px)`
+             }} />
 
         {/* Global Toast within landing page */}
         <AnimatePresence>
