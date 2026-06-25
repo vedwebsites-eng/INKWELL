@@ -2381,14 +2381,14 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => { setAuthMode('login'); setAuthError(null); }}
-                          className="py-2 px-3 rounded-xl bg-stone-100 dark:bg-zinc-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-400 text-slate-700 dark:text-zinc-300 transition-all font-sans font-medium text-xs text-center cursor-pointer border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/40"
+                          className={`py-2 px-3 rounded-xl transition-all font-sans font-medium text-xs text-center cursor-pointer border border-transparent ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-black/20 text-zinc-300 hover:bg-zinc-800/50 hover:border-zinc-700' : 'bg-white/60 backdrop-blur-sm text-slate-700 hover:bg-white/80 hover:border-stone-300'}`}
                           id="btn-switch-login"
                         >
                           Sign In
                         </button>
                         <button
                           onClick={() => { setAuthMode('signup'); setAuthError(null); }}
-                          className="py-2 px-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/10 transition-all font-sans font-semibold text-xs text-center cursor-pointer"
+                          className={`py-2 px-3 rounded-xl transition-all font-sans font-semibold text-xs text-center cursor-pointer ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-indigo-900/50 text-indigo-200 hover:bg-indigo-900/70' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-600/10'}`}
                           id="btn-switch-signup"
                         >
                           Register
@@ -2399,7 +2399,7 @@ export default function App() {
                       <button
                         onClick={handleGoogleSignIn}
                         disabled={isAuthActionInProgress}
-                        className="w-full py-2 px-3 rounded-xl border border-stone-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-900 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-stone-50 dark:hover:bg-zinc-800/80 transition-all font-sans font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        className={`w-full py-2 px-3 rounded-xl border transition-all font-sans font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-black/20 border-zinc-800 text-zinc-200 hover:bg-zinc-800/50 hover:border-zinc-700' : 'bg-white/60 backdrop-blur-sm border-stone-200 text-slate-700 hover:bg-white/80 hover:border-stone-300'}`}
                         id="btn-google-signin-idle"
                       >
                         {isAuthActionInProgress ? (
@@ -2420,7 +2420,7 @@ export default function App() {
                       <button
                         onClick={handleAnonymousSignIn}
                         disabled={isAuthActionInProgress}
-                        className="w-full py-2 px-3 rounded-xl border border-stone-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-900 bg-white/40 dark:bg-zinc-950/20 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-all font-sans font-medium text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+                        className={`w-full py-2 px-3 rounded-xl border transition-all font-sans font-medium text-[11px] flex items-center justify-center gap-1.5 cursor-pointer ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-black/20 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700' : 'bg-white/60 backdrop-blur-sm border-stone-200 text-slate-600 hover:text-slate-900 hover:border-stone-300'}`}
                         id="btn-anonymous-signin"
                       >
                         {isAuthActionInProgress ? (
@@ -2458,7 +2458,7 @@ export default function App() {
                           placeholder="Your email address"
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 focus:outline-none focus:border-indigo-500 font-sans"
+                          className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border focus:outline-none focus:border-indigo-500 font-sans ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-black/20 border-zinc-800 text-zinc-100' : 'bg-white/60 backdrop-blur-sm border-stone-200 text-slate-800'}`}
                           id="auth-email-input"
                         />
                       </div>
@@ -2472,7 +2472,7 @@ export default function App() {
                           placeholder="Your security password"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-stone-50 dark:bg-zinc-950 border border-stone-200 dark:border-zinc-800 focus:outline-none focus:border-indigo-500 font-sans"
+                          className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border focus:outline-none focus:border-indigo-500 font-sans ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-black/20 border-zinc-800 text-zinc-100' : 'bg-white/60 backdrop-blur-sm border-stone-200 text-slate-800'}`}
                           id="auth-password-input"
                         />
                       </div>
@@ -2502,7 +2502,7 @@ export default function App() {
                         type="button"
                         onClick={handleGoogleSignIn}
                         disabled={isAuthActionInProgress}
-                        className="w-full py-2 px-3 rounded-xl border border-stone-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-900 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-stone-50 dark:hover:bg-zinc-800/80 transition-all font-sans font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        className={`w-full py-2 px-3 rounded-xl border transition-all font-sans font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 ${theme.id === 'obsidian' || theme.id === 'charcoal' ? 'bg-black/20 border-zinc-800 text-zinc-200 hover:bg-zinc-800/50 hover:border-zinc-700' : 'bg-white/60 backdrop-blur-sm border-stone-200 text-slate-700 hover:bg-white/80 hover:border-stone-300'}`}
                         id="btn-google-signin-form"
                       >
                         {isAuthActionInProgress ? (
