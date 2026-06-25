@@ -1642,7 +1642,7 @@ export default function App() {
   if (showLandingPage) {
     const isDarkTheme = theme.id === 'obsidian' || theme.id === 'charcoal';
     return (
-      <div className="min-h-screen transition-all duration-500 ease-in-out flex flex-col bg-[#F3F2EE] dark:bg-zinc-950 relative overflow-x-hidden font-sans">
+      <div className={`min-h-screen transition-all duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-x-hidden font-sans`}>
         {/* Paper Background Texture */}
         <div className="absolute inset-0 opacity-100 pointer-events-none z-0 overflow-hidden" 
              style={{ backgroundImage: 'radial-gradient(#d1c5a9 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
@@ -1734,11 +1734,11 @@ export default function App() {
               <span>Unleash Your Purest Creative Writing</span>
             </div>
             
-            <h1 className="font-grotesk font-black text-4xl sm:text-5xl md:text-6xl tracking-tight text-slate-900 dark:text-white leading-[1.1] text-balance">
+            <h1 className={`font-grotesk font-black text-4xl sm:text-5xl md:text-6xl tracking-tight ${theme.textColor} leading-[1.1] text-balance`}>
               The Distraction-Free Space for <span className="text-indigo-800 dark:text-indigo-300 underline decoration-wavy decoration-2 decoration-indigo-400">Aesthetic Wordsmiths</span>
             </h1>
             
-            <p className="font-sans text-slate-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed max-w-2xl text-balance">
+            <p className={`font-sans ${theme.textColor} opacity-80 text-sm sm:text-base leading-relaxed max-w-2xl text-balance`}>
               Inkwell strips away complex clunky tools, wrapping your creative prose in beautiful notebook textures, real-time custom outlines, custom palettes, and secure cloud syncing.
             </p>
 
@@ -1779,11 +1779,11 @@ export default function App() {
           {/* Interactive Typography Sandbox */}
           <div className="w-full max-w-4xl mt-16 no-print animate-fade-in">
             <div className="text-center mb-6">
-              <h3 className="font-grotesk font-bold text-lg text-slate-900 dark:text-white flex items-center justify-center gap-2">
+              <h3 className={`font-grotesk font-bold text-lg ${theme.textColor} flex items-center justify-center gap-2`}>
                 <PenTool className="w-4 h-4 text-indigo-500" />
                 <span>Tactile Typography Sandbox</span>
               </h3>
-              <p className="text-xs text-slate-400 font-sans mt-1">Type something below and dynamically change fonts to feel the editorial flow.</p>
+              <p className={`text-xs ${theme.textColor} opacity-70 font-sans mt-1`}>Type something below and dynamically change fonts to feel the editorial flow.</p>
             </div>
 
             <div className="backdrop-blur-xl bg-white/60 dark:bg-zinc-900/60 border border-white/40 dark:border-zinc-800/40 rounded-3xl p-6 sm:p-8 shadow-2xl transition-all duration-300">
@@ -2011,7 +2011,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-500 ease-in-out flex flex-col bg-[#F3F2EE] dark:bg-zinc-950 relative overflow-hidden">
+    <div className={`min-h-screen transition-colors duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-hidden`}>
       
       {/* Frosted Glass Background Blobs */}
       <div className="absolute inset-0 opacity-50 pointer-events-none z-0 overflow-hidden no-print">
