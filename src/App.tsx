@@ -1643,12 +1643,9 @@ export default function App() {
     const isDarkTheme = theme.id === 'obsidian' || theme.id === 'charcoal';
     return (
       <div className="min-h-screen transition-all duration-500 ease-in-out flex flex-col bg-[#F3F2EE] dark:bg-zinc-950 relative overflow-x-hidden font-sans">
-        {/* Animated Background Blobs */}
-        <div className="absolute inset-0 opacity-50 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-blue-300/30 dark:bg-blue-900/10 rounded-full blur-[120px] animate-pulse duration-[12s]" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-orange-200/30 dark:bg-amber-950/10 rounded-full blur-[120px] animate-pulse duration-[10s]" />
-          <div className="absolute top-[35%] left-[65%] w-[35%] h-[35%] bg-rose-200/25 dark:bg-rose-950/10 rounded-full blur-[100px]" />
-        </div>
+        {/* Paper Background Texture */}
+        <div className="absolute inset-0 opacity-100 pointer-events-none z-0 overflow-hidden" 
+             style={{ backgroundImage: 'radial-gradient(#d1c5a9 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
         {/* Global Toast within landing page */}
         <AnimatePresence>
@@ -1738,10 +1735,10 @@ export default function App() {
             </div>
             
             <h1 className="font-grotesk font-black text-4xl sm:text-5xl md:text-6xl tracking-tight text-slate-900 dark:text-white leading-[1.1] text-balance">
-              The Distraction-Free Space for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600">Aesthetic Wordsmiths</span>
+              The Distraction-Free Space for <span className="text-indigo-800 dark:text-indigo-300 underline decoration-wavy decoration-2 decoration-indigo-400">Aesthetic Wordsmiths</span>
             </h1>
             
-            <p className="font-sans text-slate-500 dark:text-zinc-400 text-sm sm:text-base leading-relaxed max-w-2xl text-balance">
+            <p className="font-sans text-slate-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed max-w-2xl text-balance">
               Inkwell strips away complex clunky tools, wrapping your creative prose in beautiful notebook textures, real-time custom outlines, custom palettes, and secure cloud syncing.
             </p>
 
@@ -1752,7 +1749,7 @@ export default function App() {
                   setShowLandingPage(false);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-sans font-bold text-sm rounded-xl shadow-xl shadow-indigo-600/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-8 py-3.5 bg-amber-700 hover:bg-amber-800 text-white font-sans font-bold text-sm rounded-[1.5rem] shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
                 id="btn-cta-start-writing"
               >
                 <span>Enter Creative Space</span>
@@ -1873,17 +1870,17 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
               {/* Feature 1: Paper Textures */}
-              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+              <div className="bg-white/70 dark:bg-zinc-900/70 border-2 border-dashed border-stone-300 dark:border-zinc-700 rounded-[1.5rem] p-6 flex flex-col justify-between hover:border-amber-500/50 transition-all duration-300">
                 <div>
-                  <div className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                  <div className="bg-amber-100/50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 w-10 h-10 rounded-[1rem] flex items-center justify-center mb-4.5">
                     <Grid className="w-5 h-5" />
                   </div>
                   <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Artisanal Layout Textures</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                  <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed font-sans mt-2">
                     Toggle beautiful tactile patterns. Write on **Plain Blank**, **Notebook Ruled**, or **Dot Grid** layouts styled with responsive margin columns.
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4 text-[10px] font-mono text-slate-400 uppercase font-bold">
+                <div className="flex items-center gap-1.5 mt-5 border-t border-stone-200 dark:border-zinc-800/40 pt-4 text-[10px] font-mono text-slate-500 uppercase font-bold">
                   <span>Modes:</span>
                   <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded">Blank</span>
                   <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded">Ruled</span>
