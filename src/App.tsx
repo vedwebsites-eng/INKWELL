@@ -53,7 +53,12 @@ import {
   Key,
   ShieldAlert,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  ArrowRight,
+  ChevronRight,
+  Palette,
+  PenTool,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from './lib/firebase';
@@ -381,6 +386,23 @@ export default function App() {
   const [tocItems, setTocItems] = useState<{ id: string; text: string; level: number }[]>([]);
   const [tocPosition, setTocPosition] = useState<'sidebar' | 'top' | 'both' | 'hidden'>('sidebar');
 
+  // Landing page states
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(() => {
+    return localStorage.getItem('inkwell_skip_landing') !== 'true';
+  });
+  const [savedDraftStats, setSavedDraftStats] = useState<{ title: string; wordCount: number } | null>(null);
+  const [sandboxText, setSandboxText] = useState<string>("Try writing your thoughts here. Click the font buttons below to feel the difference.");
+  const [sandboxFont, setSandboxFont] = useState<string>("serif");
+  const [skipLandingPreference, setSkipLandingPreference] = useState<boolean>(() => {
+    return localStorage.getItem('inkwell_skip_landing') === 'true';
+  });
+
+  const handleSkipPreferenceChange = (checked: boolean) => {
+    setSkipLandingPreference(checked);
+    localStorage.setItem('inkwell_skip_landing', checked ? 'true' : 'false');
+    showToast(checked ? 'Bypass saved. Direct editor access enabled for next visit.' : 'Preference updated. Landing page will be shown on next visit.', 'info');
+  };
+
   // Firebase Authentication & Sync States
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
@@ -498,6 +520,16 @@ export default function App() {
         } catch (e) {
           console.error('Error parsing saved versions', e);
         }
+      }
+
+      // Calculate cached draft stats for landing page CTA
+      if (savedContent) {
+        const textOnly = savedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const wordCount = textOnly ? textOnly.split(/\s+/).length : 0;
+        setSavedDraftStats({
+          title: savedTitle || 'Untitled Aesthetic Draft',
+          wordCount
+        });
       }
 
       updateStats();
@@ -1607,6 +1639,380 @@ export default function App() {
     }
   };
 
+  if (showLandingPage) {
+    const isDarkTheme = theme.id === 'obsidian' || theme.id === 'charcoal';
+    return (
+      <div className={`min-h-screen transition-all duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-x-hidden font-sans`}>
+        {/* Animated Background Blobs */}
+        <div className="absolute inset-0 opacity-50 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-blue-300/30 dark:bg-blue-900/10 rounded-full blur-[120px] animate-pulse duration-[12s]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-orange-200/30 dark:bg-amber-950/10 rounded-full blur-[120px] animate-pulse duration-[10s]" />
+          <div className="absolute top-[35%] left-[65%] w-[35%] h-[35%] bg-rose-200/25 dark:bg-rose-950/10 rounded-full blur-[100px]" />
+        </div>
+
+        {/* Global Toast within landing page */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: -50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              id="inkwell-toast-landing"
+              className={`fixed top-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl shadow-2xl z-50 flex items-center gap-3 border text-sm font-medium transition-all ${
+                toast.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/90 dark:text-emerald-300 dark:border-emerald-900/50'
+                  : toast.type === 'error'
+                  ? 'bg-rose-50 text-rose-800 border-rose-100 dark:bg-rose-950/90 dark:text-rose-300 dark:border-rose-900/50'
+                  : 'bg-indigo-50 text-indigo-800 border-indigo-100 dark:bg-indigo-950/90 dark:text-indigo-300 dark:border-indigo-900/50'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${
+                toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'error' ? 'bg-rose-500' : 'bg-indigo-500'
+              }`} />
+              <span>{toast.message}</span>
+              <button 
+                onClick={() => setToast(null)} 
+                className="text-slate-400 hover:text-slate-600 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors ml-2"
+                id="close-toast-btn-landing"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Floating Header */}
+        <header className="w-full max-w-7xl mx-auto px-6 py-5 flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 text-white p-2.5 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/15">
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-grotesk font-semibold text-lg tracking-tight text-slate-900 dark:text-white">Inkwell</span>
+                <span className="text-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 font-mono px-1.5 py-0.5 rounded-md">V1.2</span>
+              </div>
+              <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Aesthetic Creative Space</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Quick theme previews on header */}
+            <div className="hidden md:flex items-center gap-1 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/20 dark:border-zinc-800/30">
+              <span className="text-[9px] font-mono text-slate-400 uppercase mr-1.5">Themes:</span>
+              {THEMES.map(th => (
+                <button
+                  key={`landing-header-theme-${th.id}`}
+                  onClick={() => setTheme(th)}
+                  className={`w-4 h-4 rounded-full border transition-all ${
+                    theme.id === th.id ? 'border-indigo-500 scale-110 shadow-md ring-2 ring-indigo-500/10' : 'border-stone-300/60 dark:border-zinc-800 hover:scale-105'
+                  }`}
+                  style={{
+                    backgroundColor: th.id === 'cream' ? '#F3F2EE' : th.id === 'cotton' ? '#F8FAFC' : th.id === 'sepia' ? '#F9F1E1' : th.id === 'forest' ? '#F4F6F0' : th.id === 'lavender' ? '#F6F4FA' : th.id === 'nordic' ? '#F3F7FA' : th.id === 'obsidian' ? '#18181B' : '#25282A'
+                  }}
+                  title={th.name}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setShowLandingPage(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-sans font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/15 transition-all flex items-center gap-1.5 cursor-pointer"
+              id="btn-enter-editor-header"
+            >
+              <span>Write Draft</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Hero Section */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-6 pt-12 pb-20 flex flex-col items-center justify-center relative z-10">
+          <div className="text-center max-w-3xl flex flex-col items-center gap-5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100/40 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-mono text-[10px] uppercase font-bold tracking-widest animate-bounce duration-1000">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Unleash Your Purest Creative Writing</span>
+            </div>
+            
+            <h1 className="font-grotesk font-black text-4xl sm:text-5xl md:text-6xl tracking-tight text-slate-900 dark:text-white leading-[1.1] text-balance">
+              The Distraction-Free Space for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600">Aesthetic Wordsmiths</span>
+            </h1>
+            
+            <p className="font-sans text-slate-500 dark:text-zinc-400 text-sm sm:text-base leading-relaxed max-w-2xl text-balance">
+              Inkwell strips away complex clunky tools, wrapping your creative prose in beautiful notebook textures, real-time custom outlines, custom palettes, and secure cloud syncing.
+            </p>
+
+            {/* Main CTAs */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 mt-4 w-full sm:w-auto">
+              <button
+                onClick={() => {
+                  setShowLandingPage(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-sans font-bold text-sm rounded-xl shadow-xl shadow-indigo-600/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
+                id="btn-cta-start-writing"
+              >
+                <span>Enter Creative Space</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              {savedDraftStats && savedDraftStats.wordCount > 0 ? (
+                <button
+                  onClick={() => {
+                    setShowLandingPage(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 border border-stone-200 dark:border-zinc-800 hover:border-indigo-400 dark:hover:border-indigo-900 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-all rounded-xl text-xs font-semibold flex items-center justify-center gap-2.5 group cursor-pointer shadow-sm animate-fade-in"
+                  id="btn-cta-resume-draft"
+                >
+                  <FileText className="w-4 h-4 text-indigo-500" />
+                  <div className="text-left">
+                    <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-mono">Resume Saved Draft</span>
+                    <span className="block truncate max-w-[150px] font-sans font-bold text-slate-800 dark:text-zinc-100">{savedDraftStats.title} ({savedDraftStats.wordCount} words)</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0 ml-1" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Interactive Typography Sandbox */}
+          <div className="w-full max-w-4xl mt-16 no-print animate-fade-in">
+            <div className="text-center mb-6">
+              <h3 className="font-grotesk font-bold text-lg text-slate-900 dark:text-white flex items-center justify-center gap-2">
+                <PenTool className="w-4 h-4 text-indigo-500" />
+                <span>Tactile Typography Sandbox</span>
+              </h3>
+              <p className="text-xs text-slate-400 font-sans mt-1">Type something below and dynamically change fonts to feel the editorial flow.</p>
+            </div>
+
+            <div className="backdrop-blur-xl bg-white/60 dark:bg-zinc-900/60 border border-white/40 dark:border-zinc-800/40 rounded-3xl p-6 sm:p-8 shadow-2xl transition-all duration-300">
+              {/* Sandbox Control Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 dark:border-zinc-800/60 pb-4 mb-5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Font Family:</span>
+                  <div className="flex items-center gap-1 bg-stone-100/80 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-stone-200/40 dark:border-zinc-700/30">
+                    {['serif', 'sans', 'mono'].map((fType) => {
+                      const fClass = fType === 'serif' ? 'font-serif' : fType === 'sans' ? 'font-sans' : 'font-mono';
+                      return (
+                        <button
+                          key={`sandbox-font-${fType}`}
+                          onClick={() => setSandboxFont(fType)}
+                          className={`px-2.5 py-1 text-[10px] uppercase font-bold rounded-md transition-all cursor-pointer ${
+                            sandboxFont === fType
+                              ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                              : 'text-slate-400 dark:text-zinc-500 hover:text-slate-600 dark:hover:text-zinc-300'
+                          }`}
+                        >
+                          <span className={fClass}>{fType}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Active Workspace Theme:</span>
+                  <select
+                    value={theme.id}
+                    onChange={(e) => {
+                      const found = THEMES.find(t => t.id === e.target.value);
+                      if (found) setTheme(found);
+                    }}
+                    className="text-xs bg-transparent font-semibold border-b border-transparent focus:outline-none text-slate-700 dark:text-zinc-200 cursor-pointer"
+                    id="select-sandbox-theme"
+                  >
+                    {THEMES.map(th => (
+                      <option key={`sandbox-theme-opt-${th.id}`} value={th.id} className="dark:bg-zinc-900">
+                        {th.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Sandbox text area styling */}
+              <div 
+                className={`w-full min-h-[140px] px-6 py-5 rounded-2xl border ${
+                  isDarkTheme ? 'bg-zinc-950/60 border-zinc-800 text-zinc-100' : 'bg-white/80 border-stone-200 text-slate-800'
+                } focus-within:border-indigo-400 dark:focus-within:border-indigo-900 focus-within:ring-1 focus-within:ring-indigo-400/20 transition-all`}
+              >
+                <textarea
+                  value={sandboxText}
+                  onChange={(e) => setSandboxText(e.target.value)}
+                  className={`w-full bg-transparent border-none outline-none resize-none focus:ring-0 p-0 text-base sm:text-lg leading-relaxed ${
+                    sandboxFont === 'serif' ? 'font-serif italic' : sandboxFont === 'sans' ? 'font-sans' : 'font-mono'
+                  }`}
+                  rows={4}
+                  placeholder="Draft your brilliant idea..."
+                />
+              </div>
+
+              {/* Under-sandbox tips */}
+              <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-500 font-sans mt-3.5 px-1">
+                <span className="flex items-center gap-1">
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Sandbox updates apply to your writing environment instantly.</span>
+                </span>
+                <span className="font-mono">{sandboxText.length} characters</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Features Bento Grid */}
+          <div className="w-full max-w-5xl mt-24 animate-fade-in">
+            <div className="text-center mb-12">
+              <span className="text-[10px] font-mono uppercase text-indigo-500 font-bold tracking-widest bg-indigo-50/60 dark:bg-indigo-950/40 px-3 py-1 rounded-full">Explore Features</span>
+              <h2 className="font-grotesk font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white mt-3">Crafted for Distraction-Free Focus</h2>
+              <p className="text-sm text-slate-400 font-sans max-w-lg mx-auto mt-1.5">No messy menus or bloated toolbars. Just your words, beautifully formatted.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Feature 1: Paper Textures */}
+              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div>
+                  <div className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                    <Grid className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Artisanal Layout Textures</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                    Toggle beautiful tactile patterns. Write on **Plain Blank**, **Notebook Ruled**, or **Dot Grid** layouts styled with responsive margin columns.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4 text-[10px] font-mono text-slate-400 uppercase font-bold">
+                  <span>Modes:</span>
+                  <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded">Blank</span>
+                  <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded">Ruled</span>
+                  <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-zinc-800 rounded">Dots</span>
+                </div>
+              </div>
+
+              {/* Feature 2: Color Themes */}
+              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div>
+                  <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Aesthetic Palette Themes</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                    Change visual ambiance to match your creative headspace. Choose from **Ivory Cream**, **Pure Cotton**, **Sage Forest**, or dark **Midnight Quill**.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4">
+                  {THEMES.map(th => (
+                    <div 
+                      key={`bento-theme-dot-${th.id}`} 
+                      className="w-3.5 h-3.5 rounded-full border border-stone-200/50 dark:border-zinc-800" 
+                      style={{
+                        backgroundColor: th.id === 'cream' ? '#F3F2EE' : th.id === 'cotton' ? '#F8FAFC' : th.id === 'sepia' ? '#F9F1E1' : th.id === 'forest' ? '#F4F6F0' : th.id === 'lavender' ? '#F6F4FA' : th.id === 'nordic' ? '#F3F7FA' : th.id === 'obsidian' ? '#18181B' : '#25282A'
+                      }}
+                      title={th.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Feature 3: Table of Contents Outline */}
+              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div>
+                  <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Table of Contents</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                    Structure outlines automatically. Type heading blocks to generate live Table of Contents maps with instant smooth click navigation.
+                  </p>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4 flex items-center justify-between">
+                  <span>ToC outlines:</span>
+                  <span className="font-bold text-indigo-500 dark:text-indigo-400">H1, H2, H3 tags</span>
+                </div>
+              </div>
+
+              {/* Feature 4: Cloud Sync & Google Auth */}
+              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div>
+                  <div className="bg-sky-500/10 text-sky-600 dark:text-sky-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                    <Cloud className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Cloud Sync & Google Auth</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                    Sync masterpieces to secure cloud databases. Register with simple credentials or utilize seamless **Google OAuth** login instantly.
+                  </p>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4 flex items-center justify-between">
+                  <span>Backups:</span>
+                  <span className="font-bold text-emerald-500">Google OAuth Sync</span>
+                </div>
+              </div>
+
+              {/* Feature 5: Acoustic Voice Input */}
+              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div>
+                  <div className="bg-rose-500/10 text-rose-600 dark:text-rose-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                    <Mic className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Voice Dictation</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                    Let your thoughts flow via native browser Speech Recognition. Record, dictate, and synthesize paragraphs smoothly.
+                  </p>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4 flex items-center justify-between">
+                  <span>Input mechanism:</span>
+                  <span className="font-bold text-rose-500">Speech-To-Text</span>
+                </div>
+              </div>
+
+              {/* Feature 6: Writing Diagnostics */}
+              <div className="backdrop-blur-xl bg-white/50 dark:bg-zinc-900/50 border border-white/30 dark:border-zinc-800/30 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/30 transition-all duration-300">
+                <div>
+                  <div className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 w-10 h-10 rounded-xl flex items-center justify-center mb-4.5">
+                    <Scale className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-grotesk font-bold text-base text-slate-900 dark:text-white">Intelligent Metrics</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-2">
+                    Read instant metrics including active word count, character count, estimated reading duration, and editorial complexity classifications.
+                  </p>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400 mt-5 border-t border-stone-100 dark:border-zinc-800/40 pt-4 flex items-center justify-between">
+                  <span>Analytics:</span>
+                  <span className="font-bold text-yellow-600 dark:text-yellow-400">Score, Words, Time</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Skip Preference and Footer */}
+          <div className="mt-28 w-full max-w-xl text-center border-t border-stone-200/50 dark:border-zinc-800/50 pt-10 flex flex-col items-center gap-5 relative z-10 no-print">
+            <label className="flex items-center gap-2.5 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md px-4 py-2 rounded-xl border border-stone-200/40 dark:border-zinc-800/30 cursor-pointer shadow-sm">
+              <input
+                type="checkbox"
+                checked={skipLandingPreference}
+                onChange={(e) => handleSkipPreferenceChange(e.target.checked)}
+                className="rounded border-stone-300 dark:border-zinc-800 text-indigo-600 focus:ring-indigo-500"
+                id="check-skip-landing"
+              />
+              <span className="text-[11px] font-sans text-slate-500 dark:text-zinc-400 font-medium">Bypass landing page on next visit (go directly to editor)</span>
+            </label>
+
+            <div className="text-[11px] text-slate-400/80 font-mono flex items-center justify-center gap-1.5">
+              <span>Inkwell Aesthetic Editor</span>
+              <span>•</span>
+              <span>Distraction-Free</span>
+              <span>•</span>
+              <span>Cloud Sync</span>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen transition-colors duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-hidden`}>
       
@@ -1888,6 +2294,21 @@ export default function App() {
               ) : (
                 <Mic className="w-5 h-5" />
               )}
+            </button>
+
+            {/* Back to Landing Page (Home) */}
+            <button
+              onClick={() => {
+                setShowLandingPage(true);
+                // Force scroll to top on return
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-stone-100 dark:hover:bg-zinc-800/60 rounded-xl transition-colors flex items-center gap-1.5 font-sans font-medium text-xs px-2.5 sm:px-3 cursor-pointer"
+              title="Return to Product Landing Page"
+              id="back-to-landing-btn"
+            >
+              <PenTool className="w-4 h-4 text-indigo-500" />
+              <span className="hidden md:inline">Landing Page</span>
             </button>
 
             {/* Help / Clear */}
