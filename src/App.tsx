@@ -1642,7 +1642,7 @@ export default function App() {
   if (showLandingPage) {
     const isDarkTheme = theme.id === 'obsidian' || theme.id === 'charcoal';
     return (
-      <div className={`min-h-screen transition-all duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-x-hidden font-sans`}>
+      <div className="min-h-screen transition-all duration-500 ease-in-out flex flex-col bg-[#F3F2EE] dark:bg-zinc-950 relative overflow-x-hidden font-sans">
         {/* Animated Background Blobs */}
         <div className="absolute inset-0 opacity-50 pointer-events-none z-0 overflow-hidden">
           <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-blue-300/30 dark:bg-blue-900/10 rounded-full blur-[120px] animate-pulse duration-[12s]" />
@@ -2014,7 +2014,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ease-in-out flex flex-col ${theme.bgClass} relative overflow-hidden`}>
+    <div className="min-h-screen transition-colors duration-500 ease-in-out flex flex-col bg-[#F3F2EE] dark:bg-zinc-950 relative overflow-hidden">
       
       {/* Frosted Glass Background Blobs */}
       <div className="absolute inset-0 opacity-50 pointer-events-none z-0 overflow-hidden no-print">
